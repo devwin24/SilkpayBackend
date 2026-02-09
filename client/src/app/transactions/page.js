@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@/services/api';
+import { getTransactions } from '@/services/transactionService';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from "@/components/ui/badge";
 import { Copy, ArrowUpDown, CalendarIcon, Download } from 'lucide-react';
@@ -56,11 +56,11 @@ export default function TransactionsPage() {
     const fetchTransactions = async () => {
       setLoading(true);
       try {
-        const res = await api.get('/transactions', { params: queryParams });
+        const res = await getTransactions({ params: queryParams });
 
-        if (!cancelled && res?.data) {
-          setTransactions(res.data.transactions || []);
-          setPagination(res.data.pagination || {});
+        if (!cancelled && res) {
+          setTransactions(res.transactions || []);
+          setPagination(res.pagination || {});
         }
       } catch (err) {
         console.error(err);

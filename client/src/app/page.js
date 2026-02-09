@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/services/api';
+import { getDashboardOverview, getRecentActivity, syncBalance } from '@/services/dashboardService';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { Wallet, ArrowUpRight, Activity, Clock } from 'lucide-react';
+import { Wallet, ArrowUpRight, Activity, Clock, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReportDialog } from '@/components/dashboard/ReportDialog';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const [balance, setBalance] = useState({ available: 0, pending: 0, total: 0 });
@@ -17,30 +18,31 @@ export default function DashboardPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [dashboardRes, activityRes] = await Promise.all([
-          api.get('/dashboard/overview'),
-          api.get('/dashboard/recent-activity?limit=5')
+          getDashboardOverview(),
+          getRecentActivity(5)
         ]);
         
-        // Backend returns: { success: true, data: { balance, today_payouts, ... } }
-        if (dashboardRes.success && dashboardRes.data) {
-           console.log("Dashboard Data Received:", dashboardRes.data); // DEBUG LOG
-           setBalance(dashboardRes.data.balance);
-           // We can store other stats if needed, or just specific ones
-           setTodayStats(dashboardRes.data.today_payouts || { amount: 0, count: 0 });
-           setPendingCount(dashboardRes.data.pending_payouts || 0);
+        // Services return response.data directly
+        if (dashboardRes) {
+           console.log("Dashboard Data Received:", dashboardRes);
+           setBalance(dashboardRes.balance);
+           setTodayStats(dashboardRes.today_payouts || { amount: 0, count: 0 });
+           setPendingCount(dashboardRes.pending_payouts || 0);
         }
 
-        if (activityRes.success) {
-            const activities = activityRes.data.map(item => ({
+        // Services return data directly
+        if (activityRes) {
+            const activities = activityRes.map(item => ({
                 ...item,
-                label: item.type, // 'PAYOUT', 'REFUND' etc
-                beneficiary_name: item.description, // Description contains "Payout to Name" usually
+                label: item.type,
+                beneficiary_name: item.description,
                 amount: item.amount,
                 date: item.createdAt
             }));
@@ -56,11 +58,47 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
+  const handleSyncBalance = async () => {
+    setSyncing(true);
+    const toastId = toast.loading("Syncing balance from Silkpay...");
+    try {
+      const result = await syncBalance();
+      toast.success("Balance synced successfully!", { id: toastId });
+      
+      // Refresh dashboard data after sync
+      const [dashboardRes] = await Promise.all([
+        getDashboardOverview()
+      ]);
+      
+      if (dashboardRes) {
+        setBalance(dashboardRes.balance);
+        setTodayStats(dashboardRes.today_payouts || { amount: 0, count: 0 });
+        setPendingCount(dashboardRes.pending_payouts || 0);
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast.error(error.message || "Failed to sync balance", { id: toastId });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncBalance}
+            disabled={syncing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Balance'}
+          </Button>
           <Link href="/payouts/new">
             <Button>Create Payout</Button>
           </Link>

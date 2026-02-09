@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from "sonner";
@@ -169,54 +169,6 @@ export function Header() {
 
       {/* Right side (Controls) */}
       <div className="flex items-center gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent hover:scale-105 transition-all duration-200 relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-600 ring-2 ring-background animate-pulse" />
-              <span className="sr-only">Notifications</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Notifications</p>
-                <p className="text-xs leading-none text-muted-foreground">You have 3 unread messages</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="max-h-[300px] overflow-y-auto">
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-                    <div className="flex items-center gap-2 w-full">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                        <span className="font-medium text-sm">Payout Successful</span>
-                        <span className="ml-auto text-xs text-muted-foreground">2m ago</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-4">Transfer of ₹45,000 to Rohan Gupta completed.</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-                    <div className="flex items-center gap-2 w-full">
-                        <span className="h-2 w-2 rounded-full bg-red-500" />
-                        <span className="font-medium text-sm">Transaction Failed</span>
-                        <span className="ml-auto text-xs text-muted-foreground">1h ago</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-4">Payout to HDFC Bank (****3321) failed due to invalid IFSC.</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-                    <div className="flex items-center gap-2 w-full">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        <span className="font-medium text-sm">Security Alert</span>
-                        <span className="ml-auto text-xs text-muted-foreground">5h ago</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-4">New login detected from IP 192.168.1.1</p>
-                </DropdownMenuItem>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="w-full text-center justify-center text-xs text-primary cursor-pointer">
-                View all notifications
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

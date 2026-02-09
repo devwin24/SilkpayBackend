@@ -38,13 +38,6 @@ const handleMockRequest = async (method, endpoint, payload) => {
         }
     }
 
-    if (endpoint === '/merchant/whitelist-ips' && method === 'PUT') {
-        return {
-            success: true,
-            data: { whitelist_ips: payload.ips || [] }
-        };
-    }
-
     const methodMocks = mockData[method] || {};
     const mockResponse = methodMocks[endpoint] || methodMocks.default || {};
     

@@ -67,7 +67,7 @@ Each module is self-contained with:
 
 **Modules (8):**
 1. **Auth** - JWT authentication
-2. **Merchant** - Profile, API keys, IP whitelist
+2. **Merchant** - Profile, API keys
 3. **Beneficiary** - CRUD operations
 4. **Payout** - Create, track, query
 5. **Transaction** - Ledger, exports

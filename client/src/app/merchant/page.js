@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { getMerchantProfile, getApiKeys } from '@/services/merchantService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,24 +20,20 @@ export default function MerchantPage() {
       try {
         console.log("Fetching merchant data...");
         const [profileRes, apiRes] = await Promise.all([
-          api.get('/merchant/profile'),
-          api.get('/merchant/api-keys')
+          getMerchantProfile(),
+          getApiKeys()
         ]);
         
         console.log("Profile Res:", profileRes);
         console.log("API Keys Res:", apiRes);
 
-        if (profileRes.success) {
-             setProfile(profileRes.data);
-        } else if (profileRes.data) {
-             // Fallback if success flag is missing but data exists
-             setProfile(profileRes.data);
+        // Services return data directly
+        if (profileRes) {
+             setProfile(profileRes);
         }
 
-        if (apiRes.success) {
-            setApiKeys(apiRes.data);
-        } else if (apiRes.data) {
-            setApiKeys(apiRes.data);
+        if (apiRes) {
+            setApiKeys(apiRes);
         }
         
       } catch (error) {
@@ -71,7 +67,7 @@ export default function MerchantPage() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Information */}
         {profile ? (
-            <ProfileInfoCard profile={profile} />
+            <ProfileInfoCard profile={profile} mID={profile.silkpay_config.merchant_id} />
         ) : (
             <Card className="border-red-500/20">
                 <CardHeader>
@@ -85,17 +81,17 @@ export default function MerchantPage() {
         )}
 
         {/* API Security */}
-        <APISecurityCard initialKeys={apiKeys} />
+        <APISecurityCard initialKeys={apiKeys} secretKey={profile.silkpay_config.secret_key}/>
       </div>
     </div>
   );
 }
 
-function ProfileInfoCard({ profile }) {
+function ProfileInfoCard({ profile, mID }) {
   if (!profile) return null;
   
   const copyMerchantNo = () => {
-      navigator.clipboard.writeText(profile.merchant_no);
+      navigator.clipboard.writeText(mID);
       toast.success("Merchant ID copied");
   };
   
@@ -109,7 +105,7 @@ function ProfileInfoCard({ profile }) {
         <div className="grid gap-2">
           <Label>Merchant No. (ID)</Label>
           <div className="flex items-center gap-2">
-             <Input value={profile.merchant_no} readOnly className="font-mono bg-secondary/50" />
+             <Input value={mID} readOnly className="font-mono bg-secondary/50" />
              <Button variant="outline" size="icon" onClick={copyMerchantNo}>
                  <Copy className="h-4 w-4" />
              </Button>
@@ -141,15 +137,23 @@ function ProfileInfoCard({ profile }) {
   );
 }
 
-function APISecurityCard({ initialKeys }) {
+function APISecurityCard({ initialKeys, secretKey }) {
     const [keys, setKeys] = useState(initialKeys || { secret_key: '', whitelist_ips: [] });
     const [showKey, setShowKey] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const [newIp, setNewIp] = useState('');
     const [updatingIp, setUpdatingIp] = useState(false);
     
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
+    // Mask the secret key for display only
+    const maskSecretKey = (key) => {
+        if (!key) return '';
+        if (key.length <= 8) return key.substring(0, 3) + '•'.repeat(key.length - 3);
+        if (key.length < 12) return key.substring(0, 4) + '•'.repeat(key.length - 6) + key.slice(-2);
+        return key.substring(0, 8) + '•'.repeat(key.length - 12) + key.slice(-4);
+    };
+    
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(secretKey); // Copy real key
         toast.success("Secret Key copied to clipboard");
     };
 
@@ -216,7 +220,7 @@ function APISecurityCard({ initialKeys }) {
     };
 
     return (
-        <Card className="border-orange-500/20">
+        <Card className="border-orange-500/20 h-fit">
             <CardHeader>
                 <CardTitle>API Security</CardTitle>
                 <CardDescription>Manage your API credentials and IP whitelist.</CardDescription>
@@ -230,7 +234,7 @@ function APISecurityCard({ initialKeys }) {
                         <div className="relative flex-1">
                             <Input 
                                 type={showKey ? "text" : "password"} 
-                                value={keys.secret_key || ''} 
+                                value={showKey ? secretKey : maskSecretKey(secretKey)} 
                                 readOnly 
                                 className="pr-10 font-mono bg-secondary/50" 
                             />
@@ -238,66 +242,10 @@ function APISecurityCard({ initialKeys }) {
                         <Button variant="outline" size="icon" onClick={() => setShowKey(!showKey)}>
                             {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
-                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(keys.secret_key)}>
+                        <Button variant="outline" size="icon" onClick={copyToClipboard}>
                             <Copy className="h-4 w-4" />
                         </Button>
-                    </div>
-                    <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        onClick={handleRotateKey} 
-                        disabled={regenerating}
-                        className="w-full"
-                    >
-                        <RefreshCw className={`mr-2 h-4 w-4 ${regenerating ? 'animate-spin' : ''}`} />
-                        {regenerating ? 'Regenerating...' : 'Rotate Secret Key'}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                        Keep this key secure. Do not share it in client-side code.
-                    </p>
-                </div>
-
-                <div className="border-t border-border/50 my-4" />
-
-                {/* IP Whitelist Section */}
-                <div className="space-y-3">
-                    <Label>IP Whitelist</Label>
-                    <div className="flex items-center gap-2">
-                        <Input 
-                            placeholder="Enter IP Address (e.g. 192.168.1.1)" 
-                            value={newIp}
-                            onChange={(e) => setNewIp(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddIp()}
-                            disabled={updatingIp}
-                        />
-                        <Button size="icon" onClick={handleAddIp} disabled={updatingIp || !newIp}>
-                            <Plus className="h-4 w-4" />
-                        </Button>
-                    </div>
-                    
-                    <div className="space-y-2 mt-2">
-                        {keys.whitelist_ips?.map((ip) => (
-                            <div key={ip} className="flex items-center justify-between p-2 rounded-md border bg-muted/40 text-sm">
-                                <div className="flex items-center gap-2 font-mono">
-                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                    {ip}
-                                </div>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 text-muted-foreground hover:text-red-500"
-                                    onClick={() => handleRemoveIp(ip)}
-                                    disabled={updatingIp}
-                                >
-                                    <Trash2 className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        ))}
-                        {(!keys.whitelist_ips || keys.whitelist_ips.length === 0) && (
-                            <div className="p-3 border border-dashed rounded-md text-sm text-yellow-600 bg-yellow-500/5">
-                                ⚠️ No IPs whitelisted. Your API is vulnerable. Please add your server IP.
-                            </div>
-                        )}
+                        
                     </div>
                 </div>
 

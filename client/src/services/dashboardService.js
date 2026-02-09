@@ -30,3 +30,13 @@ export const syncBalance = async () => {
   const response = await api.post('/balance/sync');
   return response.data;
 };
+
+/**
+ * Get recent activity/transactions
+ * @param {number} limit - Number of recent items to fetch
+ * @returns {Promise<Array>}
+ */
+export const getRecentActivity = async (limit = 5) => {
+  const response = await api.get('/dashboard/recent-activity', { params: { limit } });
+  return response.data || [];
+};
