@@ -179,8 +179,7 @@ npm run dev               # Start on http://localhost:3000
 | [API Documentation](./docs/API.md) | Complete API reference |
 | [Architecture Guide](./docs/ARCHITECTURE.md) | System design, data flow |
 | [Deployment Guide](./docs/DEPLOYMENT.md) | Production deployment steps |
-| [PRD](./payout_platform_prd_v1.1_final.md) | Product requirements |
-| [API Alignment](./api_frontend_alignment_analysis.md) | SilkPay API mapping |
+| [API Alignment](./docs/API.md) | SilkPay API mapping |
 
 ---
 

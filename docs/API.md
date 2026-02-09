@@ -143,7 +143,6 @@ Update merchant profile details.
 {
   "name": "Updated Business Name",
   "mobile": "+91 9988776655",
-  "notifications": { "email": true, "sms": false },
   "webhook": { "url": "https://callback.example.com" }
 }
 ```

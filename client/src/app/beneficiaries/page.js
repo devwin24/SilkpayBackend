@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { api } from '@/services/api';
+import { getBeneficiaries, createBeneficiary, updateBeneficiary, deleteBeneficiary } from '@/services/beneficiaryService';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -71,11 +71,11 @@ export default function BeneficiariesPage() {
   const fetchBeneficiaries = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/beneficiaries', { params: queryParams });
-      const rawBeneficiaries = response.data?.beneficiaries || [];
+      const response = await getBeneficiaries({ params: queryParams });
+      const rawBeneficiaries = response?.beneficiaries || [];
       const mappedBeneficiaries = rawBeneficiaries.map(b => ({
           ...b,
-          id: b._id, // Map _id to id
+          id: b._id,
           account_number: b.bank_details?.account_number || '',
           ifsc_code: b.bank_details?.ifsc_code || '',
           bank_name: b.bank_details?.bank_name || '',
@@ -85,8 +85,8 @@ export default function BeneficiariesPage() {
       }));
       setBeneficiaries(mappedBeneficiaries);
       
-      if (response.data?.pagination) {
-          setPagination(response.data.pagination);
+      if (response?.pagination) {
+          setPagination(response.pagination);
       }
     } catch (error) {
        console.error("Failed to fetch beneficiaries", error);
@@ -112,8 +112,8 @@ export default function BeneficiariesPage() {
              }
          };
 
-         const response = await api.post('/beneficiaries', payload);
-         if (response.success) {
+         const response = await createBeneficiary(payload);
+         if (response) {
              toast.success("Beneficiary created successfully");
              fetchBeneficiaries(); // Refresh list
              setOpen(false);

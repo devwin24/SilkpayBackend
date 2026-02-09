@@ -19,8 +19,14 @@ export const getMerchantProfile = async () => {
  * @returns {Promise<Object>}
  */
 export const updateMerchantProfile = async (updates) => {
-  // Filter out read-only fields that cause validation errors (e.g. id, email, balance)
-  const allowedFields = ['name', 'mobile', 'avatar', 'username'];
+  // Allowed fields for profile updates
+  const allowedFields = [
+    'name', 
+    'mobile', 
+    'avatar', 
+    'username'
+  ];
+  
   const filteredUpdates = {};
   
   Object.keys(updates).forEach(key => {
@@ -42,24 +48,7 @@ export const getApiKeys = async () => {
   return response.data || {};
 };
 
-/**
- * Regenerate secret key
- * @returns {Promise<Object>}
- */
-export const regenerateSecretKey = async () => {
-  const response = await api.post('/merchant/api-keys/regenerate');
-  return response.data;
-};
 
-/**
- * Update IP whitelist
- * @param {Array<string>} ips - Array of IP addresses
- * @returns {Promise<Object>}
- */
-export const updateIpWhitelist = async (ips) => {
-  const response = await api.put('/merchant/api-keys/whitelist', { ips });
-  return response.data;
-};
 
 /**
  * Change password

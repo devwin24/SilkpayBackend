@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Bell, Shield, Wallet, Code, Save, ChevronDown, ChevronUp, KeyRound, Building2 } from 'lucide-react';
+import { User, Bell, Shield, Wallet, Code, Save, ChevronDown, ChevronUp, KeyRound, Building2, Eye, EyeOff } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -55,6 +55,17 @@ function SettingsContent() {
       try {
         const data = await getMerchantProfile();
         setSettings(data);
+        
+        // Check if Silkpay credentials are missing
+        const hasMerchantId = data.silkpay_config?.merchant_id;
+        const hasSecretKey = data.silkpay_config?.secret_key;
+        
+        if (!hasMerchantId || !hasSecretKey) {
+          toast.warning('Silkpay credentials not configured', {
+            description: 'Please set your Silkpay Merchant ID and Secret Key in Account Information to enable payouts and balance checks.',
+            duration: 5000
+          });
+        }
       } catch (error) {
         console.error("Failed to load settings", error);
       } finally {
@@ -69,7 +80,10 @@ function SettingsContent() {
       setSettings(prev => {
           const newSettings = JSON.parse(JSON.stringify(prev));
           if (section === 'avatar') newSettings.avatar = data.avatar;
-          if (section === 'account') newSettings.username = data.username;
+          if (section === 'account') {
+            if (data.username !== undefined) newSettings.username = data.username;
+            if (data.name !== undefined) newSettings.name = data.name;
+          }
           if (section === 'notifications') newSettings.notifications = { ...prev.notifications, ...data };
           if (section === 'webhook') newSettings.webhook = { ...prev.webhook, ...data };
           if (section === 'security') newSettings.security = { ...prev.security, ...data };
@@ -156,20 +170,24 @@ function SettingsContent() {
 
        <div className="grid gap-6">
 
-            {/* 0. Account Info (Read Only) */}
+            {/* 0. Account Info */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Account Information</CardTitle>
-                    <CardDescription>Your account details are managed by the administrator</CardDescription>
+                    <CardDescription>Update your account details and preferences</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
                         <Label>Merchant Name</Label>
-                        <div className="p-3 bg-muted rounded-md text-sm font-medium">{settings?.name}</div>
+                        <Input 
+                            value={settings?.name || ''} 
+                            onChange={(e) => updateLocalSetting('account', { name: e.target.value })}
+                            placeholder="Your business name"
+                        />
                     </div>
                     <div className="space-y-2">
-                        <Label>Email Address</Label>
-                        <div className="p-3 bg-muted rounded-md text-sm font-medium">{settings?.email}</div>
+                        <Label>Email Address (Read Only)</Label>
+                        <div className="p-3 bg-muted rounded-md text-sm">{settings?.email}</div>
                     </div>
                     <div className="space-y-2">
                          <Label>Username</Label>
@@ -179,13 +197,9 @@ function SettingsContent() {
                              placeholder="Set a username"
                          />
                     </div>
-                    <div className="space-y-2">
-                        <Label>Merchant ID</Label>
-                        <div className="p-3 bg-muted rounded-md text-sm font-mono">{settings?.merchant_no}</div>
-                    </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                         <Label>Account Status</Label>
-                        <div className="pt-2 ps-1 text-lg font-medium"><StatusBadge status={settings?.status} /></div>
+                        <div className="pt-2 ps-1"><StatusBadge status={settings?.status} /></div>
                     </div>
                 </CardContent>
             </Card>
@@ -215,7 +229,7 @@ function SettingsContent() {
             </Card>
 
             {/* 2. Notifications */}
-            <Card>
+            {/* <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Notifications</CardTitle>
                 </CardHeader>
@@ -235,7 +249,7 @@ function SettingsContent() {
                         />
                     </div>
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* 3. API & Webhooks */}
             <Card>
@@ -244,12 +258,13 @@ function SettingsContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-2">
-                        <Label>Webhook URL</Label>
-                        <Input 
-                            placeholder="https://api.example.com/webhook" 
-                            value={settings.webhook?.url}
-                            onChange={(e) => updateLocalSetting('webhook', { url: e.target.value })}
-                        />
+                        <Label>Silkpay Webhook URL (Read Only)</Label>
+                        <div className="p-3 bg-muted rounded-md text-sm font-mono break-all">
+                            {settings.silkpay_webhook_url || `${window.location.origin}/api/webhook/silkpay`}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            This URL receives payment status updates from Silkpay
+                        </p>
                     </div>
                 </CardContent>
             </Card>
@@ -330,35 +345,34 @@ function SettingsContent() {
                     </div>
                 </CardContent>
              </Card>
-
-             {/* 5. Session */}
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Session</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-2">
-                        <Label>Session Timeout</Label>
-                        <Select 
-                            value={settings.session?.timeout}
-                            onValueChange={(val) => updateLocalSetting('session', { timeout: val })}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select timeout" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="15m">15 Minutes</SelectItem>
-                                <SelectItem value="30m">30 Minutes</SelectItem>
-                                <SelectItem value="1h">1 Hour</SelectItem>
-                                <SelectItem value="4h">4 Hours</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-             </Card>
         </div>
 
       </div>
 
+  );
+}
+
+// Secret Key Input Component with Eye Toggle
+function SecretKeyInput({ value, onChange }) {
+  const [showKey, setShowKey] = useState(false);
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Input 
+        type={showKey ? "text" : "password"}
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Your Silkpay secret key"
+        className="flex-1"
+      />
+      <Button 
+        type="button"
+        variant="outline" 
+        size="icon" 
+        onClick={() => setShowKey(!showKey)}
+      >
+        {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </Button>
+    </div>
   );
 }

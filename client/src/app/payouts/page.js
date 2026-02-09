@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { api } from '@/services/api';
+import { getPayouts, queryPayoutStatus } from '@/services/payoutService';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -73,22 +73,21 @@ export default function PayoutsPage() {
   const fetchPayouts = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/payouts', { params: queryParams });
+      const response = await getPayouts({ params: queryParams });
       
       let rawPayouts = [];
       let paginationData = {};
 
-      if (response.success && response.data) {
-          rawPayouts = response.data.payouts || [];
+      // Service returns data directly
+      if (response && response.payouts) {
+          rawPayouts = response.payouts || [];
           paginationData = {
-              page: response.data.page || 1,
-              pages: response.data.pages || 1,
-              total: response.data.total || 0
+              page: response.page || 1,
+              pages: response.pages || 1,
+              total: response.total || 0
           };
-      } else if (Array.isArray(response.data)) {
-           rawPayouts = response.data;
-           // Fallback pagination if array is flat (assumes all data)
-           // But if we requested page 1/limit 20, we assume backend handled it.
+      } else if (Array.isArray(response)) {
+           rawPayouts = response;
            paginationData = { page: 1, pages: 1, total: rawPayouts.length };
       }
 
@@ -160,7 +159,7 @@ export default function PayoutsPage() {
     setSyncingId(id);
     const toastId = toast.loading("Checking status...");
     try {
-        const response = await api.get(`/payouts/${id}/status`);
+        const response = await queryPayoutStatus(id);
         if (response.success) {
             toast.success("Status synced successfully", { id: toastId });
             fetchPayouts(); // Refresh list to see new status/UTR

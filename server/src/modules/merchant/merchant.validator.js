@@ -33,36 +33,6 @@ exports.validateUpdateProfile = (req, res, next) => {
 };
 
 /**
- * Validate IP whitelist update
- */
-exports.validateWhitelistIPs = (req, res, next) => {
-  const schema = Joi.object({
-    ips: Joi.array().items(
-      Joi.string().ip({ version: ['ipv4', 'ipv6'] }).messages({
-        'string.ip': 'Invalid IP address format'
-      })
-    ).min(1).required().messages({
-      'array.min': 'At least one IP address is required',
-      'any.required': 'IP addresses array is required'
-    })
-  });
-
-  const { error } = schema.validate(req.body);
-  
-  if (error) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: error.details[0].message
-      }
-    });
-  }
-
-  next();
-};
-
-/**
  * Validate change password request
  */
 exports.validateChangePassword = (req, res, next) => {

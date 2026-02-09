@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { encrypt, decrypt } = require('../../shared/utils/encryption');
 
 const MerchantSchema = new mongoose.Schema({
   merchant_no: {
@@ -48,14 +47,11 @@ const MerchantSchema = new mongoose.Schema({
     enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED'],
     default: 'ACTIVE'
   },
-  secret_key: {
+  status: {
     type: String,
-    required: true,
-    select: false // Don't return secret key by default
+    enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED'],
+    default: 'ACTIVE'
   },
-  whitelist_ips: [{
-    type: String
-  }],
   balance: {
     available: {
       type: mongoose.Schema.Types.Decimal128,
@@ -73,6 +69,9 @@ const MerchantSchema = new mongoose.Schema({
       get: (v) => v ? parseFloat(v.toString()) : 0
     }
   },
+  
+
+  
   resetPasswordToken: {
     type: String
   },
@@ -97,23 +96,14 @@ MerchantSchema.pre('save', async function(next) {
   next();
 });
 
-// Encrypt secret key before saving
-MerchantSchema.pre('save', async function(next) {
-  if (!this.isModified('secret_key')) return next();
-  
-  this.secret_key = encrypt(this.secret_key);
-  next();
-});
+
 
 // Method to compare password
 MerchantSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Method to get decrypted secret key
-MerchantSchema.methods.getDecryptedSecretKey = function() {
-  return decrypt(this.secret_key);
-};
+
 
 // Method to generate merchant number (static)
 MerchantSchema.statics.generateMerchantNo = async function() {

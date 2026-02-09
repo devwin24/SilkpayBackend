@@ -54,41 +54,6 @@ exports.getAPIKeys = async (req, res, next) => {
   }
 };
 
-/**
- * Rotate secret key
- * POST /api/merchant/api-keys/rotate
- */
-exports.rotateSecretKey = async (req, res, next) => {
-  try {
-    const merchantId = req.user._id;
-    const result = await merchantService.rotateSecretKey(merchantId);
-    
-    res.json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Update IP whitelist
- * PUT /api/merchant/whitelist-ips
- */
-exports.updateWhitelistIPs = async (req, res, next) => {
-  try {
-    const merchantId = req.user._id;
-    const result = await merchantService.updateWhitelistIPs(merchantId, req.body.ips);
-    
-    res.json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Change password
