@@ -109,6 +109,7 @@ class PayoutService {
         // Adapter returns normalized status 'PROCESSING' or 'FAILED'
         status: silkpayResponse.status,
         silkpay_response: silkpayResponse.raw,
+        failure_reason: silkpayResponse.status === 'FAILED' ? silkpayResponse.message : undefined,
         purpose: data.purpose,
         notes: data.notes
       });

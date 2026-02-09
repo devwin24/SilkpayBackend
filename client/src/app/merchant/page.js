@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { getMerchantProfile, getApiKeys } from '@/services/merchantService';
+import { getSystemIp } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Eye, EyeOff, Copy, RefreshCw, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, RefreshCw, Plus, Trash2, CheckCircle2, Server, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MerchantPage() {
@@ -143,6 +144,20 @@ function APISecurityCard({ initialKeys, secretKey }) {
     const [regenerating, setRegenerating] = useState(false);
     const [newIp, setNewIp] = useState('');
     const [updatingIp, setUpdatingIp] = useState(false);
+    const [serverIp, setServerIp] = useState(null);
+
+    // ... inside component ...
+    useEffect(() => {
+        const fetchIp = async () => {
+            try {
+                const data = await getSystemIp();
+                if (data?.ip) setServerIp(data.ip);
+            } catch (err) {
+                console.error("Failed to fetch server IP", err);
+            }
+        };
+        fetchIp();
+    }, []);
     
     // Mask the secret key for display only
     const maskSecretKey = (key) => {
@@ -250,6 +265,34 @@ function APISecurityCard({ initialKeys, secretKey }) {
                 </div>
 
             </CardContent>
+            
+             {/* Server IP Info Footer */}
+             <div className="bg-muted/30 p-4 border-t">
+                <div className="flex items-start gap-3">
+                    <Server className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <div>
+                        <h4 className="text-sm font-medium">Server IP Address</h4>
+                        <p className="text-xs text-muted-foreground mb-2">
+                           This is your server's public IP. You must whitelist this IP in your Silkpay Dashboard to allow payouts.
+                        </p>
+                        {serverIp ? (
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-background font-mono text-sm px-2 py-1">
+                                    {serverIp}
+                                </Badge>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                                    navigator.clipboard.writeText(serverIp);
+                                    toast.success("Server IP copied");
+                                }}>
+                                    <Copy className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <span className="text-xs text-muted-foreground italic">Fetching IP...</span>
+                        )}
+                    </div>
+                </div>
+             </div>
         </Card>
     );
 }

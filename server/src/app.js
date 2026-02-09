@@ -106,6 +106,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+// System IP Check (for whitelisting)
+app.get('/api/system/ip', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const response = await axios.get('https://api.ipify.org?format=json');
+    res.json({ ip: response.data.ip });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch public IP' });
+  }
+});
+
+// System IP Check (for whitelisting)
+app.get('/api/system/ip', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const response = await axios.get('https://api.ipify.org?format=json');
+    res.json({ ip: response.data.ip });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch public IP' });
+  }
+});
+
 //check
 app.get('/', (req, res) => {
   res.status(200).send("BACKEND working");

@@ -130,6 +130,11 @@ const request = async (endpoint, { method = 'GET', body, params, ...customConfig
 // ==========================================
 // EXPORTED API
 // ==========================================
+export const getSystemIp = async () => {
+    const response = await request('/system/ip');
+    return response;
+};
+
 export const api = {
     get: (url, params) => request(url, { method: 'GET', ...params }),
     post: (url, data) => request(url, { method: 'POST', body: data }),

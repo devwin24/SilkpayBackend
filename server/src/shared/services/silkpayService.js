@@ -111,7 +111,9 @@ class SilkPayService {
 
       logger.info('SilkPay Payout Response', { 
         status: response.data.status, 
-        payOrderId: response.data.data?.payOrderId 
+        payOrderId: response.data.data?.payOrderId,
+        message: response.data.message,
+        raw: response.data
       });
 
       // Normalize Response
@@ -119,9 +121,9 @@ class SilkPayService {
       
       return {
           success: isSuccess,
-          status: isSuccess ? 'PROCESSING' : 'FAILED', // Payout creation is usually PROCESSING, not immediate SUCCESS
+          status: isSuccess ? 'PROCESSING' : 'FAILED', 
           external_id: response.data.data?.payOrderId,
-          message: response.data.message,
+          message: response.data.message || 'Unknown Error from SilkPay',
           raw: response.data
       };
 
