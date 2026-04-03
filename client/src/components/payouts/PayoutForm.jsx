@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -37,6 +37,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { api } from "@/services/api"
 import { toast } from "sonner"
+
+const createIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+
+  return `payout_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
 
 // Schema for One-time payout (all fields required)
 const oneTimeSchema = z.object({
@@ -109,6 +117,7 @@ function OneTimePayoutForm() {
     const [loading, setLoading] = useState(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [pendingData, setPendingData] = useState(null)
+    const submitLockRef = useRef(false)
 
     const form = useForm({
         resolver: zodResolver(oneTimeSchema),
@@ -123,6 +132,9 @@ function OneTimePayoutForm() {
     })
 
     const handleFormSubmit = async (data) => {
+        if (submitLockRef.current) return
+
+        submitLockRef.current = true
         setLoading(true)
         try {
             const payload = {
@@ -132,7 +144,8 @@ function OneTimePayoutForm() {
                 upi: data.upi || '',
                 amount: parseFloat(data.amount).toFixed(2),
                 source: 'ONE_TIME',
-                notes: data.description || '' 
+                notes: data.description || '',
+                idempotency_key: data.idempotencyKey
             };
             
             const response = await api.post('/payouts', payload);
@@ -159,15 +172,24 @@ function OneTimePayoutForm() {
             }
         } finally {
             setLoading(false)
+            submitLockRef.current = false
+            setPendingData(null)
         }
     }
 
     const handleInitialSubmit = (data) => {
-        setPendingData(data)
+        if (submitLockRef.current) return
+
+        setPendingData({
+            ...data,
+            idempotencyKey: createIdempotencyKey()
+        })
         setConfirmOpen(true)
     }
 
     const handleConfirm = () => {
+        if (submitLockRef.current || !pendingData) return
+
         if (pendingData) {
             handleFormSubmit(pendingData)
         }
@@ -247,6 +269,11 @@ function OneTimePayoutForm() {
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? "Processing..." : "Proceed to Pay"}
                         </Button>
+                        {loading && (
+                            <p className="text-center text-sm text-muted-foreground">
+                                Payout in progress. Please do not close this page.
+                            </p>
+                        )}
                     </form>
                 </Form>
             </CardContent>
@@ -278,7 +305,7 @@ function OneTimePayoutForm() {
 
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirm} disabled={loading}>
+                    <AlertDialogAction onClick={handleConfirm} disabled={loading || submitLockRef.current}>
                         Confirm Payment
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -293,6 +320,7 @@ function ExistingPayoutForm({ beneficiaries }) {
     const [loading, setLoading] = useState(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [pendingData, setPendingData] = useState(null)
+    const submitLockRef = useRef(false)
 
     const form = useForm({
         resolver: zodResolver(existingSchema),
@@ -304,13 +332,17 @@ function ExistingPayoutForm({ beneficiaries }) {
     })
 
     const handleFormSubmit = async (data) => {
+        if (submitLockRef.current) return
+
+        submitLockRef.current = true
         setLoading(true)
         try {
              const payload = {
                  beneficiary_id: data.beneficiary_id,
                  amount: parseFloat(data.amount).toFixed(2),
                  notes: data.notes || '',
-                 source: 'SAVED'
+                 source: 'SAVED',
+                 idempotency_key: data.idempotencyKey
              }
 
              const response = await api.post('/payouts', payload);
@@ -338,15 +370,24 @@ function ExistingPayoutForm({ beneficiaries }) {
              }
          } finally {
              setLoading(false)
+             submitLockRef.current = false
+             setPendingData(null)
          }
     }
 
     const handleInitialSubmit = (data) => {
-        setPendingData(data)
+        if (submitLockRef.current) return
+
+        setPendingData({
+            ...data,
+            idempotencyKey: createIdempotencyKey()
+        })
         setConfirmOpen(true)
     }
 
     const handleConfirm = () => {
+        if (submitLockRef.current || !pendingData) return
+
         if (pendingData) {
             handleFormSubmit(pendingData)
         }
@@ -432,6 +473,11 @@ function ExistingPayoutForm({ beneficiaries }) {
                             <Button type="submit" className="w-full" disabled={loading}>
                                 {loading ? "Processing..." : "Proceed to Pay"}
                             </Button>
+                            {loading && (
+                                <p className="text-center text-sm text-muted-foreground">
+                                    Payout in progress. Please do not close this page.
+                                </p>
+                            )}
                         </form>
                     </Form>
                 </CardContent>
@@ -462,7 +508,7 @@ function ExistingPayoutForm({ beneficiaries }) {
 
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirm} disabled={loading}>
+                        <AlertDialogAction onClick={handleConfirm} disabled={loading || submitLockRef.current}>
                             Confirm Payment
                         </AlertDialogAction>
                     </AlertDialogFooter>

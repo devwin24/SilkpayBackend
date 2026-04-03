@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const Payout = require('./payout.model');
 const Beneficiary = require('../beneficiary/beneficiary.model');
 const Merchant = require('../merchant/merchant.model');
@@ -5,11 +6,81 @@ const silkpayService = require('../../shared/services/silkpayService');
 const logger = require('../../shared/utils/logger');
 const transactionService = require('../transaction/transaction.service');
 
+const IDEMPOTENCY_CACHE_TTL_MS = 10 * 60 * 1000;
+const idempotencyCache = new Map();
+
+const normalizeIdempotencyKey = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed || '';
+};
+
+const getIdempotencyCacheKey = (merchantId, idempotencyKey) => `${merchantId}:${idempotencyKey}`;
+
+const generateIdempotentOutTradeNo = (merchantNo, idempotencyKey) => {
+  const hash = crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 16);
+  return `${merchantNo}_${hash}`;
+};
+
+const pruneExpiredIdempotencyEntries = () => {
+  const now = Date.now();
+
+  for (const [cacheKey, entry] of idempotencyCache.entries()) {
+    if (now - entry.updatedAt > IDEMPOTENCY_CACHE_TTL_MS) {
+      idempotencyCache.delete(cacheKey);
+    }
+  }
+};
+
 class PayoutService {
   /**
    * Create new payout
    */
   async createPayout(merchantId, merchantNo, data, userId) {
+    pruneExpiredIdempotencyEntries();
+
+    const idempotencyKey = normalizeIdempotencyKey(data.idempotency_key);
+    const cacheKey = idempotencyKey ? getIdempotencyCacheKey(merchantId, idempotencyKey) : null;
+
+    if (cacheKey) {
+      const cached = idempotencyCache.get(cacheKey);
+
+      if (cached) {
+        if (cached.state === 'pending') {
+          logger.info('Reusing in-flight payout request', { merchantId, cacheKey });
+          return cached.promise;
+        }
+
+        if (cached.state === 'completed') {
+          logger.info('Reusing completed payout request', { merchantId, cacheKey });
+          return cached.result;
+        }
+      }
+    }
+
+    const outTradeNo = idempotencyKey
+      ? generateIdempotentOutTradeNo(merchantNo, idempotencyKey)
+      : Payout.generateOutTradeNo(merchantNo);
+
+    const executeCreate = async () => {
+      // If the same idempotent request already created a payout, return it immediately.
+      if (cacheKey) {
+        const existingPayout = await Payout.findOne({
+          merchant_id: merchantId,
+          out_trade_no: outTradeNo
+        })
+          .populate('created_by', 'name email username')
+          .lean();
+
+        if (existingPayout) {
+          logger.info('Returning existing payout for idempotency token', {
+            merchantId,
+            outTradeNo
+          });
+          return existingPayout;
+        }
+      }
+
     // Get or Create beneficiary
     let beneficiary;
 
@@ -65,9 +136,6 @@ class PayoutService {
       error.code = 'INSUFFICIENT_BALANCE';
       throw error;
     }
-
-    // Generate unique out_trade_no
-    const outTradeNo = Payout.generateOutTradeNo(merchantNo);
 
     // Decrypt account number for SilkPay
     const decryptedAccountNumber = beneficiary.getDecryptedAccountNumber();
@@ -151,6 +219,33 @@ class PayoutService {
 
       throw error;
     }
+    };
+
+    if (!cacheKey) {
+      return await executeCreate();
+    }
+
+    const pendingPromise = executeCreate()
+      .then((result) => {
+        idempotencyCache.set(cacheKey, {
+          state: 'completed',
+          result,
+          updatedAt: Date.now()
+        });
+        return result;
+      })
+      .catch((error) => {
+        idempotencyCache.delete(cacheKey);
+        throw error;
+      });
+
+    idempotencyCache.set(cacheKey, {
+      state: 'pending',
+      promise: pendingPromise,
+      updatedAt: Date.now()
+    });
+
+    return await pendingPromise;
   }
 
   /**

@@ -28,7 +28,8 @@ exports.validateCreatePayout = (req, res, next) => {
     }),
     notes: Joi.string().max(500).allow('').messages({
       'string.max': 'Notes cannot exceed 500 characters'
-    })
+    }),
+    idempotency_key: Joi.string().trim().max(120).optional()
   });
 
   const { error } = schema.validate(req.body);
